@@ -1,8 +1,7 @@
 # RL-agent-for-Path-planning
-## Auto-Driving Robot Simulation
 
-This repository implements an auto-driving robot system with navigation, server communication, and a browser-based simulator.  
-It follows a unified structure to ensure ease of testing and evaluation.
+
+This repository implements path planning on a robot inside a 2D arena for the scenario when coordinates of the workspace are available as an input to the robot.
 
 ---
 
