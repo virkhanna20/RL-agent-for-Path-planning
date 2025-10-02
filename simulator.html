@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Robot Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            gap: 20px;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .simulator-container {
+            width: 80%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e1e8ed;
+        }
+        
+        .canvas-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: #fafbfc;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 2px solid #e1e8ed;
+            min-height: 600px;
+        }
+        
+        #canvas {
+            border: 3px solid #2c3e50;
+            background: #ffffff;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            height: 100%;
+            max-width: 700px;
+            max-height: 700px;
+        }
+        
+        .info-panel {
+            width: 20%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 100vh;
+            border: 1px solid #e1e8ed;
+        }
+        
+        .info-section {
+            margin-bottom: 18px;
+            padding: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .info-section:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        
+        .info-section h3 {
+            margin: 0 0 10px 0;
+            color: #1e293b;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .position-info {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #475569;
+        }
+        
+        .collision-counter {
+            font-size: 28px;
+            font-weight: 700;
+            color: #dc2626;
+            text-align: center;
+            padding: 12px;
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            border-radius: 8px;
+            border: 1px solid #fca5a5;
+        }
+        
+        .connection-status {
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+        
+        .connected {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        
+        .disconnected {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        
+        .robot-info, .goal-info {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+        }
+        
+        .control-section {
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 2px solid #e2e8f0;
+        }
+        
+        .reconnect-btn {
+            width: 100%;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .reconnect-btn:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .reconnect-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+        
+        .goal-reached-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
+            animation: goalPulse 0.6s ease-in-out;
+        }
+        
+        @keyframes goalPulse {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            color: #1e293b;
+            font-weight: 700;
+            text-align: center;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Canvas text styling improvements */
+        .canvas-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            color: #374151;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                overflow: auto;
+            }
+            
+            .simulator-container,
+            .info-panel {
+                width: 100%;
+            }
+            
+            .info-panel {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="simulator-container">
+        <h1>2D Robot Simulator</h1>
+        
+        <div class="canvas-wrapper">
+            <canvas id="canvas" width="650" height="600"></canvas>
+            <div id="goalReachedMessage" class="goal-reached-message">
+                🎯 GOAL REACHED! 🎯
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <button class="reconnect-btn" onclick="connectWebSocket()">
+                🔗 Reconnect WebSocket
+            </button>
+        </div>
+    </div>
+    
+    <div class="info-panel">
+        <div class="info-section">
+            <h3>Connection Status</h3>
+            <div id="connectionStatus" class="connection-status disconnected">
+                🔴 Disconnected
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Collision Counter</h3>
+            <div id="collisionCounter" class="collision-counter">0</div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Robot Position</h3>
+            <div id="robotInfo" class="robot-info position-info">
+                X: 200, Y: 200<br>
+                Angle: 0°<br>
+                Status: Idle<br>
+                Distance to Goal: --
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Goal Position</h3>
+            <div id="goalInfo" class="goal-info position-info">
+                X: 350, Y: 50<br>
+                Distance: --
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Legend</h3>
+            <div class="position-info">
+                🔴 Robot (Red Circle)<br>
+                🚩 Goal (Green Flag)<br>
+                ⬛ Obstacles (Black Squares)<br>
+                📡 Real-time position updates<br>
+                📍 Use /obstacles endpoint for coordinates
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Canvas and drawing setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let robot = { x: 320, y: 300, angle: 0, size: 18, moving: false, targetX: 320, targetY: 300 };
+        let goal = { x: 550, y: 80, size: 15 };
+        let obstacles = [];
+        let collisionCount = 0;
+        let goalReached = false;
+        let ws = null;
+        let animationId = null;
+        
+        // WebSocket connection
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('WebSocket already connected');
+                return;
+            }
+            
+            ws = new WebSocket('ws://localhost:8080');
+            
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+                ws.send(JSON.stringify({ type: 'connection', message: '2D Robot simulator connected' }));
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus(false);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus(false);
+            };
+            
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                console.log('Received:', message);
+                handleWebSocketMessage(message);
+            };
+        }
+        
+        function handleWebSocketMessage(message) {
+            switch(message.command) {
+                case 'move':
+                    moveToPosition(message.target.x, message.target.y);
+                    break;
+                case 'move_relative':
+                    moveRelative(message.angle, message.distance);
+                    break;
+                case 'stop':
+                    stopRobot();
+                    break;
+                case 'set_goal':
+                    goal.x = message.position.x;
+                    goal.y = message.position.y;
+                    goalReached = false;
+                    hideGoalReachedMessage();
+                    updateGoalInfo();
+                    break;
+                case 'set_obstacles':
+                    obstacles = message.obstacles;
+                    break;
+                case 'reset':
+                    resetSimulator();
+                    break;
+            }
+        }
+        
+        // Robot movement functions
+        function moveToPosition(x, y) {
+            robot.targetX = Math.max(robot.size, Math.min(canvas.width - robot.size, x));
+            robot.targetY = Math.max(robot.size, Math.min(canvas.height - robot.size, y));
+            robot.moving = true;
+            goalReached = false;
+            hideGoalReachedMessage();
+            updateRobotInfo();
+        }
+        
+        function moveRelative(angleDegrees, distance) {
+            robot.angle += angleDegrees;
+            robot.angle = robot.angle % 360;
+            
+            const angleRad = (robot.angle * Math.PI) / 180;
+            const newX = robot.x + Math.cos(angleRad) * distance;
+            const newY = robot.y + Math.sin(angleRad) * distance;
+            
+            moveToPosition(newX, newY);
+        }
+        
+        function stopRobot() {
+            robot.moving = false;
+            robot.targetX = robot.x;
+            robot.targetY = robot.y;
+            updateRobotInfo();
+        }
+        
+        // Collision detection
+        function checkCollisions() {
+            for (let obstacle of obstacles) {
+                const dx = robot.x - obstacle.x;
+                const dy = robot.y - obstacle.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < robot.size + obstacle.size / 2) {
+                    collisionCount++;
+                    updateCollisionCounter();
+                    stopRobot();
+                    
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'collision',
+                            collision: true,
+                            robot_position: { x: robot.x, y: robot.y },
+                            obstacle_position: { x: obstacle.x, y: obstacle.y }
+                        }));
+                    }
+                    
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Check if robot reached goal
+        function checkGoalReached() {
+            const dx = robot.x - goal.x;
+            const dy = robot.y - goal.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < robot.size + goal.size && !goalReached) {
+                goalReached = true;
+                showGoalReachedMessage();
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'goal_reached',
+                        robot_position: { x: robot.x, y: robot.y },
+                        goal_position: { x: goal.x, y: goal.y }
+                    }));
+                }
+                stopRobot();
+                return true;
+            }
+            return false;
+        }
+        
+        function showGoalReachedMessage() {
+            const message = document.getElementById('goalReachedMessage');
+            message.style.display = 'block';
+            setTimeout(hideGoalReachedMessage, 4000);
+        }
+        
+        function hideGoalReachedMessage() {
+            document.getElementById('goalReachedMessage').style.display = 'none';
+        }
+        
+        // Drawing functions
+        function drawRobot() {
+            ctx.save();
+            ctx.translate(robot.x, robot.y);
+            ctx.rotate((robot.angle * Math.PI) / 180);
+            
+            // Robot body with gradient
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, robot.size);
+            gradient.addColorStop(0, robot.moving ? '#ff6b6b' : '#ff4757');
+            gradient.addColorStop(1, robot.moving ? '#ee5a52' : '#ff3742');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, robot.size, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Robot border
+            ctx.strokeStyle = '#c44569';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Direction indicator
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(robot.size - 5, 0);
+            ctx.lineTo(robot.size - 15, -5);
+            ctx.lineTo(robot.size - 15, 5);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        function drawGoal() {
+            // Goal flag with gradient
+            const gradient = ctx.createLinearGradient(goal.x - goal.size, goal.y - goal.size, 
+                                                    goal.x + goal.size, goal.y + goal.size);
+            gradient.addColorStop(0, '#2ed573');
+            gradient.addColorStop(1, '#1e9955');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(goal.x - goal.size, goal.y - goal.size, goal.size * 2, goal.size * 2);
+            
+            // Flag pole
+            ctx.strokeStyle = '#0d7a2e';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(goal.x, goal.y - goal.size);
+            ctx.lineTo(goal.x, goal.y + goal.size + 10);
+            ctx.stroke();
+        }
+        
+        function drawObstacles() {
+            obstacles.forEach((obstacle, index) => {
+                // Obstacle with gradient
+                const gradient = ctx.createLinearGradient(
+                    obstacle.x - obstacle.size/2, obstacle.y - obstacle.size/2,
+                    obstacle.x + obstacle.size/2, obstacle.y + obstacle.size/2
+                );
+                gradient.addColorStop(0, '#2f3542');
+                gradient.addColorStop(1, '#1e2328');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(
+                    obstacle.x - obstacle.size / 2, 
+                    obstacle.y - obstacle.size / 2, 
+                    obstacle.size, 
+                    obstacle.size
+                );
+                
+                // Obstacle border
+                ctx.strokeStyle = '#57606f';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(
+                    obstacle.x - obstacle.size / 2, 
+                    obstacle.y - obstacle.size / 2, 
+                    obstacle.size, 
+                    obstacle.size
+                );
+                
+                // No coordinates displayed on canvas anymore
+            });
+        }
+        
+        function drawGrid() {
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 1;
+            
+            for (let x = 0; x <= canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y <= canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        function draw() {
+            // Clear canvas with gradient background
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#f8fafc');
+            gradient.addColorStop(1, '#f1f5f9');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawGrid();
+            drawObstacles();
+            drawGoal();
+            drawRobot();
+        }
+        
+        function updateRobot() {
+            if (robot.moving) {
+                const dx = robot.targetX - robot.x;
+                const dy = robot.targetY - robot.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 2) {
+                    const speed = 2;
+                    robot.x += (dx / distance) * speed;
+                    robot.y += (dy / distance) * speed;
+                    robot.angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                } else {
+                    robot.x = robot.targetX;
+                    robot.y = robot.targetY;
+                    robot.moving = false;
+                }
+                
+                checkCollisions();
+                checkGoalReached();
+                updateRobotInfo();
+            }
+        }
+        
+        // UI update functions
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.textContent = '🟢 Connected';
+                statusEl.className = 'connection-status connected';
+            } else {
+                statusEl.textContent = '🔴 Disconnected';
+                statusEl.className = 'connection-status disconnected';
+            }
+        }
+        
+        function updateCollisionCounter() {
+            document.getElementById('collisionCounter').textContent = collisionCount;
+        }
+        
+        function updateRobotInfo() {
+            const distance = Math.sqrt(Math.pow(goal.x - robot.x, 2) + Math.pow(goal.y - robot.y, 2));
+            document.getElementById('robotInfo').innerHTML = `
+                X: ${Math.round(robot.x)}, Y: ${Math.round(robot.y)}<br>
+                Angle: ${Math.round(robot.angle)}°<br>
+                Status: ${robot.moving ? 'Moving' : 'Idle'}<br>
+                Distance to Goal: ${Math.round(distance)}px
+            `;
+        }
+        
+        function updateGoalInfo() {
+            const distance = Math.sqrt(Math.pow(goal.x - robot.x, 2) + Math.pow(goal.y - robot.y, 2));
+            document.getElementById('goalInfo').innerHTML = `
+                X: ${goal.x}, Y: ${goal.y}<br>
+                Distance: ${Math.round(distance)}px
+            `;
+        }
+        
+        function resetSimulator() {
+            goalReached = false;
+            hideGoalReachedMessage();
+        }
+        
+        function gameLoop() {
+            updateRobot();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        function init() {
+            obstacles = [
+                { x: 150, y: 120, size: 25 },
+                { x: 450, y: 180, size: 25 },
+                { x: 220, y: 300, size: 25 },
+                { x: 380, y: 380, size: 25 },
+                { x: 100, y: 450, size: 25 },
+                { x: 500, y: 100, size: 25 },
+                { x: 280, y: 220, size: 25 },
+                { x: 420, y: 320, size: 25 }
+            ];
+            
+            // Update robot and goal positions for larger canvas
+            robot = { x: 320, y: 300, angle: 0, size: 18, moving: false, targetX: 320, targetY: 300 };
+            goal = { x: 550, y: 80, size: 15 };
+            
+            updateRobotInfo();
+            updateGoalInfo();
+            updateCollisionCounter();
+            connectWebSocket();
+            gameLoop();
+        }
+        
+        window.addEventListener('load', init);
+        
+        window.addEventListener('beforeunload', function() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
