@@ -4,6 +4,7 @@ import websockets
 from flask import Flask, request, jsonify
 import threading
 import random
+import time
 
 app = Flask(__name__)
 
@@ -23,6 +24,7 @@ async_loop = None
 collision_count = 0
 goal_reached = False
 current_obstacles = []  # Track obstacles server-side
+latest_canvas_capture = None  # Store latest canvas capture
 CANVAS_WIDTH = 650   # Updated canvas width
 CANVAS_HEIGHT = 600  # Updated canvas height
 
@@ -51,7 +53,7 @@ def generate_random_obstacles(count=8):
 # WebSocket Handler
 # ---------------------------
 async def ws_handler(websocket, path=None):
-    global collision_count, goal_reached
+    global collision_count, goal_reached, latest_canvas_capture
     print("Client connected via WebSocket")
     connected.add(websocket)
     try:
@@ -65,9 +67,21 @@ async def ws_handler(websocket, path=None):
                     elif data.get("type") == "goal_reached":
                         goal_reached = True
                         print(f"Goal reached! Robot position: {data.get('robot_position')}")
+                    elif data.get("type") == "canvas_captured":
+                        latest_canvas_capture = {
+                            'image_data': data.get('image_data'),
+                            'timestamp': data.get('timestamp'),
+                            'canvas_size': data.get('canvas_size'),
+                            'robot_position': data.get('robot_position'),
+                            'goal_position': data.get('goal_position'),
+                            'obstacles_count': data.get('obstacles_count')
+                        }
+                        print(f"Canvas captured at {data.get('timestamp')}")
+                    elif data.get("type") == "canvas_capture_error":
+                        print(f"Canvas capture error: {data.get('error')}")
             except Exception as e:
                 print(f"Error processing message: {e}")
-            print("Received from simulator:", message)
+            print("Received from simulator:", message[:100] + "..." if len(message) > 100 else message)
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected")
     finally:
@@ -149,20 +163,37 @@ def get_goal_status():
     })
 
 # ---------------------------
+# Capture Endpoint (modified)
+# ---------------------------
+@app.route('/capture', methods=['GET'])
+def capture_canvas():
+    global latest_canvas_capture
+
+    # Step 1: Trigger capture request
+    if not broadcast({"command": "capture_canvas"}):
+        return jsonify({'status': 'error', 'message': 'No connected simulators.'}), 400
+
+    # Step 2: Wait (up to 3 seconds) for simulator to reply
+    timeout = time.time() + 3
+    while time.time() < timeout:
+        if latest_canvas_capture is not None:
+            return jsonify({
+                'status': 'success',
+                'image_data': latest_canvas_capture['image_data'],
+                'timestamp': latest_canvas_capture['timestamp'],
+                'canvas_size': latest_canvas_capture['canvas_size'],
+                'robot_position': latest_canvas_capture['robot_position'],
+                'goal_position': latest_canvas_capture['goal_position'],
+                'obstacles_count': latest_canvas_capture['obstacles_count'],
+                'message': 'Canvas image captured successfully'
+            })
+        time.sleep(0.1)  # avoid CPU busy loop
+
+    return jsonify({'status': 'error', 'message': 'Timed out waiting for canvas capture'}), 504
+
+# ---------------------------
 # Obstacles Management
 # ---------------------------
-@app.route('/obstacles', methods=['GET'])
-def get_obstacles():
-    """GET endpoint to retrieve all current obstacle positions"""
-    # This endpoint returns obstacles but they won't be displayed on canvas
-    # You would need to track obstacles server-side for this to work
-    # For now, returning a placeholder response
-    return jsonify({
-        'obstacles': [],
-        'count': 0,
-        'message': 'Obstacle tracking not yet implemented server-side'
-    })
-
 @app.route('/obstacles/random', methods=['POST'])
 def generate_obstacles():
     data = request.get_json() or {}
@@ -255,7 +286,6 @@ if __name__ == "__main__":
     flask_thread.start()
     
     # Give Flask a moment to start
-    import time
     time.sleep(1)
     
     try:
