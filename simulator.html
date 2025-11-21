@@ -366,6 +366,9 @@
                 case 'set_obstacles':
                     obstacles = message.obstacles;
                     break;
+                case 'capture_canvas':
+                    captureCanvas();
+                    break;
                 case 'reset':
                     resetSimulator();
                     break;
@@ -458,6 +461,48 @@
         
         function hideGoalReachedMessage() {
             document.getElementById('goalReachedMessage').style.display = 'none';
+        }
+        
+        function captureCanvas() {
+            // Capture the current canvas state as base64 image
+            try {
+                const imageData = canvas.toDataURL('image/png');
+                const timestamp = new Date().toISOString();
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'canvas_captured',
+                        image_data: imageData,
+                        timestamp: timestamp,
+                        canvas_size: {
+                            width: canvas.width,
+                            height: canvas.height
+                        },
+                        robot_position: {
+                            x: Math.round(robot.x),
+                            y: Math.round(robot.y),
+                            angle: Math.round(robot.angle)
+                        },
+                        goal_position: {
+                            x: goal.x,
+                            y: goal.y
+                        },
+                        obstacles_count: obstacles.length
+                    }));
+                }
+                
+                console.log('Canvas captured and sent via WebSocket');
+            } catch (error) {
+                console.error('Error capturing canvas:', error);
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'canvas_capture_error',
+                        error: error.message,
+                        timestamp: new Date().toISOString()
+                    }));
+                }
+            }
         }
         
         // Drawing functions
